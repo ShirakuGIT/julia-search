@@ -3,15 +3,21 @@ using Gumbo
 using AbstractTrees
 
 href_attributes::Array{String} = []
-metadata::Dict{String,String} = Dict()
+urls::Dict{String,String} = Dict()
 disallow::Array{String} = []
 sitemap::Array{String} = []
 
+url = "https://en.wikipedia.org/wiki/Julius_Caesar"
+
 function robots_txt(rooturl)
     robots_url = rooturl * "/robots.txt"
-    resp = HTTP.get(robots_url)
-    robots_content = String(resp.body)
-
+    robots_content = ""
+    try
+        resp = HTTP.get(robots_url)
+        robots_content = String(resp.body)
+    catch e
+        println("Exception occured:", e)
+    end
     for line in split(robots_content, '\n')
         if occursin("Disallow:", line)
             disallowed_url = split(line, " ")[2]
@@ -25,7 +31,7 @@ end
 
 function parseHtml(rooturl)
     try
-        resp = HTTP.get(rooturl, ["User-Agent" => "julia-spider"], connect_timeout=3, readtimeout=3)
+        resp = HTTP.get(rooturl, ["User-Agent" => "julia-spider"], connect_timeout=2, readtimeout=2)
 
         if isempty(resp.body)
             println("No URLs found in the page: $rooturl")
@@ -50,20 +56,18 @@ function crawl(root, rooturl, depth)
         try
             if tag(elem) == :a
                 href = getattr(elem, "href")
+                href_value = AbstractTrees.children(elem)[1].text
+                #println(typeof(href_value))
                 if startswith(href, "http")
                     push!(href_attributes, href)
+                    urls[href_value] = href
                 else
                     push!(href_attributes, rooturl * href)
-                end
-            elseif tag(elem) == :meta
-                name = getattr(elem, "name", "")
-                content = getattr(elem, "content", "")
-                if !isempty(name) && !isempty(content)
-                    metadata[name] = content
+                    urls[href_value] = rooturl * href
                 end
             end
         catch e
-            println("Error processing element: ", e)
+            #println("Error processing element: ", e)
         end
     end
 
@@ -75,24 +79,29 @@ function crawl(root, rooturl, depth)
     end
 end
 
-robots_txt("https://crawler-test.com")
-x = parseHtml("https://crawler-test.com")
+robots_txt(url)
+x = parseHtml(url)
 println("Enter the recursion depth:")
 depth = parse(Int, readline())
-crawl(x, "https://crawler-test.com", depth)
+crawl(x, url, depth)
 
 
 println("Scraped URLs:")
-for url in scraped_urls
+for url in href_attributes
     println(url)
 end
 
 println("Disallowed URLs:")
-for disallowed_url in all_disallows
+for disallowed_url in disallow
     println(disallowed_url)
 end
 
 println("Sitemap URLs:")
-for sitemap_url in all_sitemaps
+for sitemap_url in sitemap
     println(sitemap_url)
+end
+
+println("urls")
+for (key, value) in urls
+    println("$key: \t\t\t$value")
 end
