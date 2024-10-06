@@ -21,23 +21,40 @@ function root_parser(url::String)::String
 end
 
 function robots_txt(rooturl)
-    robots_url = rooturl * "/robots.txt"
+    robots_url = rooturl * "robots.txt"
     robots_content = ""
+    is_global_user_agent = false
+
     try
         resp = HTTP.get(robots_url)
         robots_content = String(resp.body)
     catch e
-        println("Exception occured:", e)
+        println("Exception occurred:", e)
+        return
     end
+
     for line in split(robots_content, '\n')
-        if occursin("Disallow:", line)
-            disallowed_url = split(line, " ")[2]
-            push!(disallow, rooturl * disallowed_url)
-        elseif occursin("Sitemap:", line)
-            sitemap_url = split(line, " ")[2]
-            push!(sitemap, sitemap_url)
+        line = strip(line)
+        if startswith(line, "User-agent:")
+            user_agent = split(line, " ")[2]
+            if user_agent == "*"
+                is_global_user_agent = true
+            else
+                is_global_user_agent = false
+            end
+        elseif is_global_user_agent
+            if startswith(line, "Disallow:")
+                disallowed_url = split(line, " ")[2]
+                push!(disallow, rooturl * disallowed_url)
+            elseif startswith(line, "Sitemap:")
+                sitemap_url = split(line, " ")[2]
+                push!(sitemap, sitemap_url)
+            end
         end
     end
+
+    println("Disallowed URLs: ", disallow)
+    println("Sitemap URLs: ", sitemap)
 end
 
 function parseHtml(rooturl)
@@ -92,8 +109,8 @@ end
 
 root_url = root_parser(url)
 println(root_url)  # Output: https://en.wikipedia.org
-
-robots_txt(url)
+println(typeof(root_url))
+robots_txt(root_url)
 x = parseHtml(url)
 println("Enter the recursion depth:")
 depth = parse(Int, readline())
