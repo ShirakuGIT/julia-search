@@ -1,6 +1,7 @@
 using HTTP
 using Gumbo
 using AbstractTrees
+using Match
 
 href_attributes::Array{String} = []
 urls::Dict{String,String} = Dict()
@@ -8,6 +9,16 @@ disallow::Array{String} = []
 sitemap::Array{String} = []
 
 url = "https://en.wikipedia.org/wiki/Julius_Caesar"
+
+function root_parser(url::String)::String
+    # Regular expression to match the root URL
+    match = Match.match(r"(https?://[^/]+)/", url)
+    if match !== nothing
+        return match.match
+    else
+        error("Invalid URL format")
+    end
+end
 
 function robots_txt(rooturl)
     robots_url = rooturl * "/robots.txt"
@@ -78,6 +89,9 @@ function crawl(root, rooturl, depth)
         end
     end
 end
+
+root_url = root_parser(url)
+println(root_url)  # Output: https://en.wikipedia.org
 
 robots_txt(url)
 x = parseHtml(url)
